@@ -1,0 +1,1267 @@
+---
+title: "Disease analysis"
+author: "Hardlife Chinwa"
+date: "2024-08-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+getwd()
+setwd("E:/monitoring/Yield")
+```
+######loading the package for image analysis###
+```{r}
+library(pliman)
+library(tidygraph)
+library(tidyr)
+library(tidyselect)
+```
+
+##############loading the image#####
+```{r}
+img=image_import("E:/Field trials/Groundnut/Mutoko8/Sand/R3/Plots/Farmer 3/pea_Munzungu_munemari.JPG")
+healthy=image_import("h.JPG")
+symptoms=image_import("symptomatic.PNG")
+background=image_import("background.JPG")
+background=b1
+```
+###using pallete
+
+```{r}
+img=image_import("pea_Caroline Mudzengerere.JPG")
+set_pliman_viewer("mapview")
+b1=pick_palette(img)
+h1=pick_palette(img)
+s1=pick_palette(img)
+```
+
+####plot the image####
+```{r}
+m1=image_segment(img, index = "BGI")
+plot_measures(im, measure = "area")
+```
+####measure disease#####
+```{r}
+image_autocrop(img)
+image_resize(img,rel_size = 250,plot = TRUE)
+```
+
+#######individual image####
+###the symtom psrt was omitted to maximise the selection by the omputer####
+```{r}
+im1=measure_disease(img = img,
+                    dir_original = ("E:/Field trials/Monitoring images/Year1 Disease assessment/R1"),
+                    dir_processed = ("E:/Field trials/Monitoring images/Year1 Disease assessment/R1/Sverity_results"),
+                    img_healthy = h1,
+                    img_symptoms = s1,
+                    img_background = b1,
+                    verbose = FALSE,
+                    plot = TRUE,
+                    show_segmentation = FALSE,
+                    show_background = FALSE,
+                    show_original = TRUE,
+                    show_contour = TRUE,
+                    contour_col = "red",
+                    contour_size = 3,
+                    fill_hull = TRUE,
+                    col_lesions ="red",
+                    parallel = FALSE,
+                    save_image = FALSE)
+im1$severity
+write.csv(im1$severity,"pea_pea_Babra Musodza .csv")
+```
+
+Use the pattern to measure multiple leaves
+```{r}
+im=measure_disease(pattern = "pea",
+                   dir_original = ("E:/Field trials/Monitoring images/Year1 Disease assessment/R1"),
+                   dir_processed = ("E:/Field trials/Monitoring images/Year1 Disease assessment/R1/Sverity_results"),
+                   img_healthy = h1,
+                   img_symptoms = s1,
+                   img_background = b1,
+                   verbose = FALSE,
+                   plot = TRUE,
+                   show_segmentation = FALSE,
+                   show_background = FALSE,
+                   show_original = TRUE,
+                   show_contour = TRUE,
+                   contour_col = "red",
+                   contour_size = 3,
+                   fill_hull = TRUE,
+                   col_lesions ="red",
+                   parallel = FALSE,
+                   save_image = TRUE)
+im$severity
+class(im$severity)
+write.csv(im$severity,"disease severity for year 1.csv")
+```
+
+measure the standard area diagram
+```{r}
+sad(im,n=10)    
+sad(
+  im,
+  n=10,
+  show_original = TRUE,
+  show_contour = TRUE,
+  nrow = 2,
+  ncol = 5,
+  round(n,digits = 0))
+```
+
+Fitting population dynamics
+###Epifitter package
+
+```{r}
+p1=read.csv("C:/Users/hchin/OneDrive/Atlantic Beach/Documents/PhD/DPhil/Field monitoring/Spatio_temporal_analysis/AER2_all/Farmer1_incidence.csv",header = TRUE)
+```
+
+```{r}
+library(r4pde)
+library(epifitter)
+library(ggplot2)
+library(dplyr)
+library(cowplot)
+```
+
+```{r}
+p1$AER=as.factor(p1$AER)
+p1$Time=as.factor(p1$Time)
+```
+
+fit the model1
+```{r}
+p1m=p1|>ggplot(aes(Time,Severity,
+                   linetype = AER,
+                   shape = AER,group = AER))+
+  scale_color_grey()+
+  theme_grey()+
+  geom_line(linewidth=1)+
+  geom_point(size=3,shape=16)+
+  labs(y="Disease severity",
+       x="Time (Reproductive stage)")+
+  theme_r4pde()
+```
+
+```{r}
+p1m
+```
+
+single epidemics
+
+```{r}
+library(epifitter)
+library(ggplot2)
+```
+
+Linear model
+```{r}
+epi2=fit_lin(time=p1$Time,
+             y=p1$Incidence)
+epi2
+plot_fit(epi2)+
+  labs(y="Predicted",x="Reproductive stage")
+```
+nonlinear model
+
+```{r}
+epi22=fit_nlin(time=pepper$t,
+             y=pepper$'2')
+epi22
+plot_fit(epi22)
+```
+Area under curve
+
+```{r}
+AUDPC(time=pepper$t,
+      y=pepper2,
+      y_propotion=TRUE)
+```
+
+Fitting multiple epidemics
+
+```{r}
+epiall=fit_multi(time_col="Time", 
+                 intensity_col="Severity",
+                 data=p1,
+                 strata_cols = "AER",
+                 nlin=FALSE,estimate_K = FALSE)
+epiall
+
+```
+
+Exploratory analysis
+read the data
+
+```{r}
+epiall$Data %>% 
+  ggplot(aes(time,predicted,colour = AER))+
+  geom_point(aes(time,y),colour="gray")+
+  geom_line(linewidth=1)+facet_grid(AER~model,scales="free_y")+theme_minimal_hgrid(font_size = 14,line_size = 1)+coord_cartesian(ylim = c(0,0.75))
+```
+
+```{r}
+epiall$Data %>% 
+  filter(model=="Gompertz") %>% 
+  ggplot(aes(time,predicted,,colour=AER))+
+  geom_point(aes(time,y),
+             colour="gray",
+             size=2)+
+  geom_line(size=1.2)+
+  theme_minimal_grid()+
+  labs(x="Time (R stages)",y="Disease severity")
+```
+
+```{r}
+write.csv(epiall$Parameters,"Parameters for disease severity.csv")
+write.csv(epiall$Data,"Data for disease severity.csv")
+```
+
+```{r}
+RGB=read.csv("E:/monitoring/Yield/Yield_and_diseases.csv")
+attach(RGB)
+attach(YieldR7)
+```
+
+Make the factors
+
+```{r}
+YieldR7$Ward=as.factor(YieldR7$Ward)
+YieldR7$Growth_stage=as.factor(YieldR7$Growth_stage)
+attach(YieldR7)
+```
+
+load the libraries
+
+###check for the normality of data
+```{r}
+shapiro.test(RGB$ggy)
+```
+
+###plot a normality line
+```{r}
+library(tidyselect)
+library(ggplot2)
+qqnorm(RGB$symptomatic)
+qqline(RGB$symptomatic)
+qqplot(RGB$symptomatic,RGB$CSI)
+```
+# Using to explore the distribution of a variable
+```{r}
+ggplot(RGB, aes(sample = RGB$symptomatic)) +
+  stat_qq() +
+  stat_qq_line()
+ggplot(RGB, aes(sample = symptomatic, colour = factor(Ward))) +
+  stat_qq() +
+  stat_qq_line()+
+  theme_bw()+
+  theme(element_blank())
+```
+###compute the model lmer
+```{r}
+library(lme4)
+library(lmerTest)
+library(agricolae)
+```
+
+
+```{r}
+attach(YieldR7)
+YieldR7$Ward=as.factor(YieldR7$Ward)
+```
+
+
+```{r}
+chin=lm(YieldR7$sd_plt~Ward,YieldR7)
+anova(chin)
+```
+
+###mean separation using boxplots
+```{r}
+boxplot(Severity ~ Growth_stage,
+        col=c("white","lightgray"),RGB)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+RGB %>% ggplot(aes(x= Ward, y=ggy)) +
+  geom_boxplot()
+```
+
+```{r}
+RGB %>% ggplot(aes(x= Growth_stage, y=symptomatic)) +
+  geom_boxplot() +
+  facet_grid(.~Year)
+```
+
+```{r}
+RGB %>% ggplot(aes(x= Growth_stage, y=symptomatic)) +
+  geom_boxplot() +
+  facet_grid(.~Year)
+```
+
+```{r}
+RGB %>% ggplot(aes(x= Growth_stage, y=necrosis,fill = Growth_stage)) +
+  geom_violin() +
+  facet_grid(Year~Ward)
+```
+####can make it colourful with fill
+```{r}
+RGB %>% ggplot(aes(x= Growth_stage, y=necro)) +
+  geom_boxplot(aes(fill=Growth_stage))+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 0,size = 15))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))+
+  facet_grid(Year~Ward)
+```
+#######################################
+##### For Murewa only
+ 
+#######principal component analysis
+```{r}
+treat=read.csv("E:/monitoring/BLUE_means_for_severity.csv",header = T)
+attach(treat)
+```
+
+```{r}
+treat$Field=as.factor(treat$Field)
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(ggpubr)
+```
+
+```{r}
+df=treat[,-1]
+row.names(df)=as.factor(`Field`)
+View(df)
+res.PCA <- PCA(df, graph = TRUE)
+print(res.PCA)
+eig.val <- get_eigenvalue(res.PCA)
+eig.val
+head(eig.val)
+eig.val=as.data.frame(eig.val)
+write_xlsx(eig.val,"Eigen values for the parameters.xlsx")
+fviz_screeplot(res.PCA)
+var <- get_pca_var(res.PCA)
+var$coord
+var$cor
+var$contrib
+var$coord=as.data.frame(var$coord)
+var$cor=as.data.frame(var$cor)
+var$contrib=as.data.frame(var$contrib)
+```
+
+```{r}
+write_xlsx(var$coord,"Coordinates for the parameters.xlsx")
+
+write_xlsx(var$cor,"correlations of the parameters .xlsx")
+
+write_xlsx(var$contrib,"contribution variances for the parameters.xlsx")
+write.table(var$coord,"Coord of variables.xls", row.names=TRUE, sep="\t")
+write.table(var$cor,"Correlation_variables_dimensions.xls", row.names=TRUE, sep="\t")
+write.table(var$contrib,"Contribution_variables.xls", row.names=TRUE, sep="\t")
+```
+# Plot of variables
+```{r}
+
+fviz_pca_var(res.PCA, repel = TRUE)
+```
+# Contribution to the first dimension
+```{r}
+
+a1=fviz_contrib(res.PCA, "var", axes = 1)
+a1
+```
+
+# Contribution to the second dimension
+```{r}
+b=fviz_contrib(res.PCA, "var", axes = 2)
+b
+c=fviz_contrib(res.PCA, "var", axes = 2)
+c
+ggarrange(a1,b,c,ncol=1,nrow = 2)
+```
+
+# Compute hierarchical clustering on principal components
+```{r}
+res.hcpc <- HCPC(res.PCA, graph = FALSE)
+res.hcpc
+varA=fviz_pca_var(res.PCA,axes = c(1, 2),col.var = "cos2",
+                  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+                  repel = TRUE )+
+  theme_minimal()
+varA
+varB=fviz_pca_var(res.PCA,axes = c(1, 2),col.var = "cos2",
+                  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+                  repel = TRUE )+
+  theme_minimal()
+
+varC=fviz_pca_var(res.PCA,axes = c(1, 2),col.var = "cos2",
+                  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+                  repel = TRUE )+
+  theme_minimal()
+
+ggarrange(varA,varB,ncol=2,legend = NULL,common.legend = TRUE)
+c=fviz_dend(res.hcpc,
+            cex = 0.8,                   # Label size
+            # Color palette see ?ggpubr::ggpar
+            rect = FALSE, rect_fill = FALSE, # Add rectangle around groups
+            horiz=TRUE, # Rectangle color
+            labels_track_height = 0.5       # Augment the room for labels
+)
+c
+d=fviz_cluster(res.hcpc,axes = c(1, 2),
+               repel = TRUE,           # Avoid label overlapping
+               show.clust.cent = FALSE,geom=c("point","text"), # Show cluster centers
+               # Color palette see ?ggpubr::ggpar
+               ggtheme = theme_minimal(),ellipse.type = "convex",
+               main = "Factor map"
+)
+d
+```
+
+```{r}
+res.hcpc
+clustdata=res.hcpc$data.clust
+write.table(  clustdata,"Dataset with the cluster of the individuals.xls", row.names=TRUE, sep="\t")
+quanti=res.hcpc$desc.var$quanti
+quanti$`1`
+quanti$`2`
+quanti$`3`
+write.table(  quanti$`1`,"Description of the cluster 1 by the var.xls", row.names=TRUE, sep="\t")
+write.table(  quanti$`2`,"Description of the cluster 2 by the var.xls", row.names=TRUE, sep="\t")
+write.table(  quanti$`3`,"Description of the cluster 3 by the var.xls", row.names=TRUE, sep="\t")
+res.hcpc$desc.axes$quanti
+write.table(  res.hcpc$desc.axes$quanti,"Description of the clusters by the axes.xls", row.names=TRUE, sep="\t")
+```
+
+```{r}
+library(r4pde)
+YieldR7 |> 
+  ggplot(aes(Disease_incidence, ggy, 
+             group = Ward))+
+  geom_point(size = 2)+
+   theme_r4pde(font_size= 14)+
+  geom_smooth(method = "lm", se = F, color = "black", fullrange = T)+
+  ylim(0, 2500)+
+  facet_wrap(~Ward)+
+  labs(x = "White mold incidence (%)",
+       y = "Soybean yield (kg/ha)",
+       color = "Study")
+```
+
+correlation analysis
+
+```{r}
+library(ggpubr)
+
+library(ggplot2)
+```
+
+```{r}
+op<-ggscatter(raw_data,x = "PT", y = "GY", add = "reg.line") +
+
+  stat_cor(label.x=80,label.y = 5.1,
+
+           aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~"))) +
+
+  stat_regline_equation(label.x = 80,label.y = 5.5, size = 4)
+
+do<-op+ggtitle("(a)")+labs(x = "Productive tillers",
+
+       y = "Grain yield (Kg)")
+
+do
+```
+
+```{r}
+library(patchwork)# to compile the plots together 
+
+waka<-(do|do1)/(do2|do3)/(do4|do5)
+```
+
+```{r}
+ggsave(filename = "ha.png", plot = waka,
+
+       width = 20, height = 25, dpi = 2500, units = "cm")
+```
+
+############Circular bar plots in R studio
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+```
+
+```{r}
+w8=read.csv("C:/Users/hchin/OneDrive/Atlantic Beach/Documents/PhD/DPhil/FIeld_monitoring_R/yld_aer4.csv")
+```
+
+```{r}
+attach(YieldR7)
+```
+
+```{r}
+Ward8=YieldR7 %>% filter(Ward==8) %>% dplyr::select(Code,ggy) %>% rename(Farmer=Code)
+```
+
+```{r}
+View(Ward8)
+```
+
+```{r}
+
+w8y=ggplot(data = w8,aes(x=Farmer,y=GY,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  ylim(0,1180)+labs(title = "",x="Farmer",y="Grain yield (Kg/ha)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 12))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+w8y
+```
+###BIOMASS
+
+```{r}
+
+w8z=ggplot(data = w8,aes(x=Farmer,y=BM,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  ylim(0,1250)+labs(title = "",x="Farmer",y="Biomass (Kg/ha)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 12))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+w8z
+```
+```{r}
+w10=read.csv("C:/Users/hchin/OneDrive/Atlantic Beach/Documents/PhD/DPhil/FIeld_monitoring_R/yld_aer3.csv")
+```
+
+```{r}
+Ward10=YieldR7 %>% filter(Ward==10) %>% dplyr::select(Code,ggy) %>% rename(Farmer=Code)
+```
+
+```{r}
+View(Ward10)
+```
+
+```{r}
+w10y=ggplot(data = w10,aes(x=Farmer,y=GY,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  ylim(0,990)+labs(title = "",x="Farmer",y="Grain yield (Kg/ha)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 11))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+w10y
+```
+
+```{r}
+w10z=ggplot(data = w10,aes(x=Farmer,y=BM,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  ylim(0,2325)+labs(title = "",x="Farmer",y="Biomass (Kg/ha)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 11))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+w10z
+```
+
+```{r}
+w28=read.csv("C:/Users/hchin/OneDrive/Atlantic Beach/Documents/PhD/DPhil/FIeld_monitoring_R/yld_aer2.csv")
+```
+
+```{r}
+Ward28=YieldR7 %>% filter(Ward==28) %>% dplyr::select(Code,ggy) %>% rename(Farmer=Code)
+```
+
+```{r}
+View(Ward28)
+```
+
+```{r}
+w28y=ggplot(data = w28,aes(x=Farmer,y=GY,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  ylim(0,1120)+labs(title = "",x="Farmer",y="Grain yield (Kg/ha)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 12))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+w28y
+```
+```{r}
+w28z=ggplot(data = w28,aes(x=Farmer,y=BM,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  ylim(0,1990)+labs(title = "",x="Farmer",y="Biomass (Kg/ha)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 12))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+w28z
+```
+
+Grain weight
+
+```{r}
+Ward28pg=YieldR7 %>% filter(Ward==28) %>% dplyr::select(Code,pg) %>% rename(Farmer=Code)
+```
+
+```{r}
+View(Ward28pg)
+```
+
+```{r}
+ggplot(data = Ward28pg,aes(x=Farmer,y=pg,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  ylim(0,0.68)+labs(title = "",x="Farmer",y="Seed weight (g)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 15))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+
+```{r}
+Ward10pg=YieldR7 %>% filter(Ward==10) %>% dplyr::select(Code,pg) %>% rename(Farmer=Code)
+```
+
+```{r}
+View(Ward10pg)
+```
+
+```{r}
+ggplot(data = Ward10pg,aes(x=Farmer,y=pg,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  ylim(0,0.65)+labs(title = "",x="Field",y="Seed weight (g)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 15))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+
+```{r}
+Ward8pg=YieldR7 %>% filter(Ward==8) %>% dplyr::select(Code,pg) %>% rename(Farmer=Code)
+```
+
+```{r}
+View(Ward8pg)
+```
+
+```{r}
+ggplot(data = Ward8pg,aes(x=Farmer,y=pg,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  ylim(0,0.65)+labs(title = "",x="Field",y="Seed weight (g)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 15))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+
+##########Murewa only
+```{r}
+Murewa=read.csv("C:/Users/hchin/OneDrive/Atlantic Beach/Documents/PhD/DPhil/Field monitoring/Spatio_temporal_analysis/AER2_all/AER2_means_quantitative.csv")
+```
+
+```{r}
+M1=Murewa %>% filter(Ward==28) %>% dplyr::select(Farmer,GY) %>% rename(Farmer=Farmer)
+```
+
+```{r}
+View(M1)
+```
+
+```{r}
+ggplot(data = M1,aes(x=Farmer,y=GY,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  labs(title = "",x="Field",y="GY (kg/ha)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 10))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+```{r}
+M2=Murewa %>% filter(Ward==28) %>% dplyr::select(Farmer,GW) %>% rename(Farmer=Farmer)
+```
+
+```{r}
+View(M2)
+```
+
+```{r}
+ggplot(data = M2,aes(x=Farmer,y=GW,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  labs(title = "",x="Field",y="1000 GW")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 10))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+```{r}
+M3=Murewa %>% filter(Ward==28) %>% dplyr::select(Farmer,PY) %>% rename(Farmer=Farmer)
+```
+
+```{r}
+View(M3)
+```
+
+```{r}
+ggplot(data = M3,aes(x=Farmer,y=PY,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  labs(title = "",x="Field",y="PY (kg/ha)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 10))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+```{r}
+M4=Murewa %>% filter(Ward==28) %>% dplyr::select(Farmer,Biomas) %>% rename(Farmer=Farmer)
+```
+
+```{r}
+View(M4)
+```
+
+```{r}
+ggplot(data = M4,aes(x=Farmer,y=Biomas,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  labs(title = "",x="Field",y="Biomas (kg/ha)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 10))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+```{r}
+M5=Murewa %>% filter(Ward==28) %>% dplyr::select(Farmer,SHW) %>% rename(Farmer=Farmer)
+```
+
+```{r}
+View(M5)
+```
+
+```{r}
+ggplot(data = M5,aes(x=Farmer,y=SHW,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  labs(title = "",x="Field",y="SHW (kg/ha)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 10))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+```{r}
+M6=Murewa %>% filter(Ward==28) %>% dplyr::select(Farmer,Severity_est) %>% rename(Farmer=Farmer)
+```
+
+```{r}
+View(M6)
+```
+
+```{r}
+ggplot(data = M6,aes(x=Farmer,y=Severity_est,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  labs(title = "",x="Field",y="Severity (%)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 10))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+```{r}
+M7=Murewa %>% filter(Ward==28) %>% dplyr::select(Farmer,Incidence) %>% rename(Farmer=Farmer)
+```
+
+```{r}
+View(M7)
+```
+
+```{r}
+ggplot(data = M7,aes(x=Farmer,y=Incidence,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  labs(title = "",x="Field",y="Incidence (%)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 10))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+```{r}
+M8=Murewa %>% filter(Ward==28) %>% dplyr::select(Farmer,HI) %>% rename(Farmer=Farmer)
+```
+
+```{r}
+View(M8)
+```
+
+```{r}
+ggplot(data = M8,aes(x=Farmer,y=HI,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  labs(title = "",x="Field",y="HI")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 10))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+```{r}
+M8=Murewa %>% filter(Ward==28) %>% dplyr::select(Farmer,SHP) %>% rename(Farmer=Farmer)
+```
+
+```{r}
+View(M8)
+```
+
+```{r}
+ggplot(data = M8,aes(x=Farmer,y=SHP,
+                          fill = Farmer))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  coord_polar(start = 0)+
+  labs(title = "",x="Field",y="SHP (%)")+
+  theme(axis.text.x = element_text(angle = 90,size = 15))+
+  theme(axis.text.y = element_text(angle = 90,size = 10))+
+  theme(axis.title.x = element_text(size = 17))+
+  theme(axis.title.y = element_text(size = 17))
+```
+
+
+
+
+
+
+
+
+
+
+Combine the plots
+
+```{r}
+library(ggplot2)
+library(patchwork)
+# Labels for each plot
+w10y + w28y + w8y+plot_annotation(tag_levels = "A", tag_prefix = "")
+```
+
+```{r}
+library(ggplot2)
+library(cowplot)
+plot_grid(w28y, w8y, w10y) 
+```
+#######################################
+Density plot
+###########making the density plot for yield attributes
+
+```{r}
+Ward8rad=YieldR7 %>% filter(Ward==8) %>% dplyr::select(gsd,gagb,ngm2,sd_plt,ggy)
+```
+
+```{r}
+View(Ward8rad)
+```
+
+```{r}
+write.csv(Ward8rad,"Ward8rad.csv")
+```
+
+```{r}
+ward8rad=read.csv("E:/monitoring/Yield/Ward8rad.csv",row.names = X)
+attach(ward8rad)
+```
+
+```{r}
+library(ggplot2)
+library(fmsb)
+```
+
+```{r}
+View(ward8rad)
+```
+
+```{r}
+ward8rad1=ward8rad[,-1]
+View(ward8rad1)
+```
+
+```{r}
+Ward8r=radarchart(ward8rad1,axistype = 2,seg = 4)
+```
+
+```{r}
+Ward28rad=YieldR7 %>% filter(Ward==28) %>% dplyr::select(gsd,gagb,ngm2,sd_plt,ggy)
+```
+
+```{r}
+View(Ward28rad)
+```
+
+
+```{r}
+write.csv(Ward28rad,"Ward28rad.csv")
+```
+
+```{r}
+ward28rad=read.csv("C:/Users/hchin/OneDrive/Atlantic Beach/Documents/PhD/DPhil/FIeld_monitoring_R/yld_radar_AER2.csv",header = TRUE,row.names = "x")
+attach(ward28rad)
+View(ward28rad)
+```
+
+```{r}
+Ward28r=radarchart(ward28rad,axistype = 0,seg = 3)
+```
+
+```{r}
+Ward28rad=YieldR7 %>% filter(Ward==28) %>% dplyr::select(gsd,gagb,ngm2,sd_plt,ggy)
+```
+
+```{r}
+View(Ward28rad)
+```
+
+```{r}
+write.csv(Ward28rad,"Ward10rad.csv")
+```
+
+```{r}
+ward28rad=read.csv("E:/monitoring/Yield/Ward10rad.csv",row.names = "x1")
+attach(ward28rad)
+View(ward28rad)
+```
+
+```{r}
+Ward28r=radarchart(ward28rad,axistype = 2,seg = 4)
+```
+
+####correlation analysis and heatmaps
+Add the libraries
+```{r}
+library(pheatmap)
+library(corrplot)
+library(correlation)
+library(RColorBrewer)
+####BiocManager::install("ComplexHeatmap")
+library(ComplexHeatmap)
+```
+###Overal correlation
+```{r}
+overall=Murewa %>% filter(Ward==28) %>% dplyr::select(Incidence,Severity,GY,Biomas,SHW,GW,HI,PY)
+```
+
+```{r}
+yieldR7=read.csv("E:/monitoring/Yield/YieldR7.csv")
+attach(yieldR7)
+```
+
+```{r}
+ward10=yieldR7 %>% filter(Ward==10)
+```
+
+```{r}
+ward10cor=ward10[,c(45:71)]
+View(ward10cor)
+```
+
+```{r}
+overallc<-correlation(overall[,1:8],method="pearson")
+overallc
+```
+
+```{r}
+write.csv(overallc,"Correlation overall.csv")
+```
+
+```{r}
+corov=read.csv("Correlation overall.csv",row.names = "Trait")
+attach(corov)
+```
+
+```{r}
+heat_plot <- pheatmap(corov, 
+                      col = brewer.pal(10, 'RdYlGn'), # choose a colour scale for your data
+                      cluster_rows = T, cluster_cols = T, # set to FALSE if you want to remove the dendograms
+                      clustering_distance_cols = 'euclidean',
+                      clustering_distance_rows = 'euclidean',
+                      clustering_method = 'ward.D',
+show_colnames = T, show_rownames = T,fontsize = 15,
+display_numbers = TRUE,
+         number_color = "black", 
+         fontsize_number = 15,#
+# displaying column and row names
+                      main = "d") # a title for our heatmap
+```
+
+```{r}
+## Showing rows and columns
+pheatmap(corov,
+         main = "Super cool heatmap",
+         show_colnames = T, show_rownames = T,
+         number_color = "yellow", 
+         fontsize_number = 8)
+```
+
+```{r}
+## Showing values
+pheatmap(corov,
+         fontsize_col = 10,
+         fontsize_row = 10,
+         display_numbers = TRUE,
+         number_color = "black", 
+         fontsize_number = 10,#
+         border_color = "black") # default is grey60
+```
+
+### Correlation at Flowering
+```{r}
+flower=Murewa %>% filter(Ward==28) %>% dplyr::select(Inc1,Severity1,GY,Biomas,SHW,GW,HI,PY)
+```
+
+```{r}
+ward28cor=yieldR7 %>% filter(Ward==28) %>% select(,c(45:71))
+```
+
+```{r}
+View(ward28cor)
+```
+
+```{r}
+flowerco<-correlation(flower[,1:8],method="pearson")
+```
+
+```{r}
+write.csv(flowerco,"Correlation at flowering.csv")
+```
+
+```{r}
+cor28=read.csv("E:/monitoring/Yield/Correlation ward28 stage7.csv",row.names = "Trait")
+attach(cor28)
+View(cor28)
+```
+
+```{r}
+corflow=read.csv("C:/Users/hchin/OneDrive/Atlantic Beach/Documents/PhD/DPhil/Field monitoring/Spatio_temporal_analysis/Correlation at flowering.csv",row.names = "Trait")
+attach(corflow)
+```
+
+```{r}
+heat_plot <- pheatmap(corflow, 
+                      col = brewer.pal(10, 'RdYlGn'), # choose a colour scale for your data
+                      cluster_rows = T, cluster_cols = T, # set to FALSE if you want to remove the dendograms
+                      clustering_distance_cols = 'euclidean',
+                      clustering_distance_rows = 'euclidean',
+                      clustering_method = 'ward.D',
+show_colnames = T, show_rownames = T,fontsize = 15,
+display_numbers = TRUE,
+         number_color = "black", 
+         fontsize_number = 15,#
+# displaying column and row names
+                      main = "a") # a title for our heatmap
+```
+
+```{r}
+## Showing values
+pheatmap(corflow,
+         fontsize_col = 10,
+         fontsize_row = 10,
+         display_numbers = TRUE,
+         number_color = "black", 
+         fontsize_number = 10,#
+         border_color = "black") # default is grey60
+```
+
+### Correlation at podding
+```{r}
+pod=Murewa %>% filter(Ward==28) %>% dplyr::select(Inc3,Severity3,GY,Biomas,SHW,GW,HI,PY)
+```
+```{r}
+podco<-correlation(pod[,1:8],method="pearson")
+```
+```{r}
+write.csv(podco,"Correlation at podding.csv")
+```
+```{r}
+corpod=read.csv("C:/Users/hchin/OneDrive/Atlantic Beach/Documents/PhD/DPhil/Field monitoring/Spatio_temporal_analysis/Correlation at podding.csv",row.names = "Trait")
+attach(corpod)
+```
+
+
+```{r}
+heat_plot <- pheatmap(corpod, 
+                      col = brewer.pal(10, 'RdYlGn'), # choose a colour scale for your data
+                      cluster_rows = T, cluster_cols = T, # set to FALSE if you want to remove the dendograms
+                      clustering_distance_cols = 'euclidean',
+                      clustering_distance_rows = 'euclidean',
+                      clustering_method = 'ward.D',
+show_colnames = T, show_rownames = T,fontsize = 15,
+display_numbers = TRUE,
+         number_color = "black", 
+         fontsize_number = 15,#
+# displaying column and row names
+                      main = "b") # a title for our heatmap
+```
+```{r}
+## Showing values
+pheatmap(corpod,
+         fontsize_col = 10,
+         fontsize_row = 10,
+         display_numbers = TRUE,
+         number_color = "black", 
+         fontsize_number = 10,#
+         border_color = "black") # default is grey60
+```
+Maturity
+```{r}
+mature=Murewa %>% filter(Ward==28) %>% dplyr::select(inc7,Severity7,GY,Biomas,SHW,GW,HI,PY)
+```
+
+```{r}
+matco<-correlation(mature[,1:8],method="pearson")
+```
+```{r}
+write.csv(matco,"Correlation at maturity.csv")
+```
+```{r}
+cormat=read.csv("C:/Users/hchin/OneDrive/Atlantic Beach/Documents/PhD/DPhil/Field monitoring/Spatio_temporal_analysis/Correlation at maturity.csv",row.names = "Trait")
+attach(cormat)
+```
+
+```{r}
+heat_plot <- pheatmap(cormat, 
+                      col = brewer.pal(10, 'RdYlGn'), # choose a colour scale for your data
+                      cluster_rows = T, cluster_cols = T, # set to FALSE if you want to remove the dendograms
+                      clustering_distance_cols = 'euclidean',
+                      clustering_distance_rows = 'euclidean',
+                      clustering_method = 'ward.D',
+show_colnames = T, show_rownames = T,fontsize = 15,
+display_numbers = TRUE,
+         number_color = "black", 
+         fontsize_number = 15,#
+# displaying column and row names
+                      main = "c") # a title for our heatmap
+```
+
+```{r}
+## Showing values
+pheatmap(cormat,
+         fontsize_col = 10,
+         fontsize_row = 10,
+         display_numbers = TRUE,
+         number_color = "black", 
+         fontsize_number = 10,#
+         border_color = "black") # default is grey60
+```
+#######################################
+```{r}
+ward8cor=yieldR7 %>% filter(Ward==8) %>% select(,c(45:71))
+```
+
+```{r}
+View(ward8cor)
+```
+
+```{r}
+analysis<-correlation(ward8cor[,2:27],method="pearson")
+analysis
+```
+
+```{r}
+write.csv(analysis,"Correlation ward8 stage7.csv")
+```
+
+```{r}
+cor8=read.csv("E:/monitoring/Yield/Correlation ward8 stage7.csv",row.names = "Trait")
+attach(cor8)
+View(cor8)
+```
+
+```{r}
+heat_plot <- pheatmap(cor8, 
+                      col = brewer.pal(10, 'RdYlGn'), # choose a colour scale for your data
+                      cluster_rows = T, cluster_cols = T, # set to FALSE if you want to remove the dendograms
+                      clustering_distance_cols = 'euclidean',
+                      clustering_distance_rows = 'euclidean',
+                      clustering_method = 'ward.D',
+show_colnames = T, show_rownames = T,
+display_numbers = TRUE,
+         number_color = "black", 
+         fontsize_number = 6,#
+# displaying column and row names
+                      main = "Super heatmap for ward 8") # a title for our heatmap
+```
